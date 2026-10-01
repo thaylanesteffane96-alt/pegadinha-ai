@@ -1,0 +1,220 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Não Confie no Jogo!</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;min-height:100vh;background:radial-gradient(circle at top,#37306c,#101326 65%);
+ color:white;font-family:Arial,sans-serif;text-align:center;overflow-x:hidden
+}
+main{max-width:700px;margin:auto;padding:18px 12px}
+h1{font-size:clamp(30px,7vw,48px);color:#ffe66d;text-shadow:0 0 18px #ff9d00;margin:12px 0}
+.subtitle{color:#cbd1ff}
+.panel{background:#1b2042;border:1px solid #6463a7;border-radius:20px;padding:20px;box-shadow:0 12px 35px #0007}
+.stats{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.badge{background:#30345f;border-radius:10px;padding:9px 13px;font-weight:bold}
+#stageTitle{color:#70eaff;font-size:25px;margin:20px 0 8px}
+#story{font-size:18px;line-height:1.5;min-height:60px}
+#arena{min-height:220px;background:#10152e;border:2px dashed #535d9a;border-radius:15px;margin:16px 0;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;position:relative;overflow:hidden}
+button{border:0;border-radius:11px;padding:13px 20px;background:linear-gradient(110deg,#ff4d9a,#8c5cff);color:white;font-size:16px;font-weight:bold;cursor:pointer}
+button:hover{filter:brightness(1.15)}
+button:active{transform:scale(.96)}
+.option{background:#344477;width:min(100%,350px)}
+#message{min-height:30px;color:#ffe66d;font-weight:bold;margin:12px}
+#next{display:none;background:linear-gradient(110deg,#00b8a9,#2584db)}
+#restart{background:#39446f}
+input{width:min(100%,280px);padding:13px;border-radius:10px;border:2px solid #707bb5;background:#0c1229;color:white;font-size:18px;text-align:center}
+.small{font-size:13px;color:#aeb9e9}
+#moving{position:absolute;left:40%;top:40%;transition:left .12s,top .12s}
+#fake{position:absolute;right:12px;top:12px;background:#a52b57}
+#secret{color:#10152e;cursor:pointer}
+#secret::selection{background:#ffe66d}
+#timer{font-size:32px;color:#ffe66d;font-weight:bold}
+</style>
+</head>
+<body>
+<main>
+<h1>🤡 NÃO CONFIE NO JOGO!</h1>
+<p class="subtitle">O jogo vai tentar enganar você. Será que consegue vencer?</p>
+<section class="panel">
+ <div class="stats">
+  <span class="badge">🎯 Fase <span id="level">1</span>/10</span>
+  <span class="badge">❤️ Vidas: <span id="lives">3</span></span>
+  <span class="badge">🏆 Pontos: <span id="points">0</span></span>
+ </div>
+ <h2 id="stageTitle">O botão suspeito</h2>
+ <p id="story">Clique no botão para começar.</p>
+ <div id="arena"></div>
+ <div id="message">Não acredite em tudo que aparece!</div>
+ <button id="next" onclick="nextStage()">Próxima fase ➜</button>
+ <button id="restart" onclick="restart()">↻ Recomeçar</button>
+</section>
+<p class="small">Dica: observe tudo. Às vezes a solução não é clicar no botão.</p>
+</main>
+<script>
+const stages=[
+ {
+ title:"O botão suspeito",
+ story:"Clique no botão VERDE para vencer. É muito fácil, confia.",
+ build(){
+  const b=button("VERDE","option");b.style.background="#20a85b";
+  b.onclick=()=>fail("Você confiou demais! O botão verde era uma armadilha.");
+  const red=button("Não clique aqui","option");red.style.background="#bd3159";
+  red.onclick=()=>win("Você desconfiou do botão verde!");
+  arena.append(b,red);
+ }
+ },
+ {
+ title:"O botão fugitivo",
+ story:"Clique no botão para continuar. Ele parece estar com medo...",
+ build(){
+  const b=button("ME PEGUE!","");b.id="moving";
+  b.onmouseenter=()=>{b.style.left=Math.random()*65+"%";b.style.top=Math.random()*65+"%";};
+  b.onclick=()=>win("Finalmente pegou! O botão cansou de fugir.");
+  arena.append(b);
+  const hint=document.createElement("p");hint.className="small";hint.textContent="Dica: tente tocar nele antes que fuja.";
+  arena.append(hint);
+ }
+ },
+ {
+ title:"A senha impossível",
+ story:"A senha tem 4 letras. Está escrita bem na sua frente. Descubra!",
+ build(){
+  const t=document.createElement("h2");t.textContent="SENHA: OLHE ATRÁS DE VOCÊ";t.style.color="#ffe66d";
+  const input=document.createElement("input");input.placeholder="Digite a senha";
+  const b=button("Desbloquear","");b.onclick=()=>normalize(input.value)==="voce"?win("Você percebeu a pista!"):fail("Senha errada! Leia a frase novamente.");
+  arena.append(t,input,b);
+ }
+ },
+ {
+ title:"Não aperte nada",
+ story:"Para passar, NÃO aperte nenhum botão. Aguarde...",
+ build(){
+  const t=document.createElement("div");t.id="timer";t.textContent="3";
+  const b=button("APERTE PARA PULAR","");b.onclick=()=>fail("Você apertou! A instrução estava certa.");
+  arena.append(t,b);
+  let n=3;t.dataset.n=n;
+  const interval=setInterval(()=>{
+   if(!arena.contains(t)){clearInterval(interval);return}
+   n--;t.textContent=n;
+   if(n<=0){clearInterval(interval);win("Você teve paciência e passou!")}
+  },1000);
+ }
+ },
+ {
+ title:"Encontre o invisível",
+ story:"Existe um botão escondido nesta tela. Encontre e clique nele.",
+ build(){
+  const t=document.createElement("p");t.textContent="Não está no centro...";
+  const b=button("VOCÊ ME ACHOU!","");b.style.opacity="0.015";b.style.position="absolute";b.style.left="8px";b.style.bottom="8px";b.style.fontSize="10px";b.onclick=()=>win("Você encontrou o botão quase invisível!");
+  arena.append(t,b);
+ }
+ },
+ {
+ title:"A pergunta errada",
+ story:"Qual é a resposta correta? 1 + 1 = ?",
+ build(){
+  ["1","2","3","11"].forEach(v=>{
+   const b=button(v,"option");
+   b.onclick=()=>v==="11"?win("Pegadinha! A pergunta era sobre os símbolos, não a conta."):fail("Era uma pegadinha! Pense no jeito de escrever.");
+   arena.append(b);
+  });
+ }
+ },
+ {
+ title:"O botão certo",
+ story:"Um dos três botões abre a saída. A dica é: a saída não está no botão certo.",
+ build(){
+  ["BOTÃO CERTO","BOTÃO ERRADO","NÃO SOU A SAÍDA"].forEach((v,i)=>{
+   const b=button(v,"option");
+   b.onclick=()=>i===1?win("Você escolheu o botão errado... que era o certo!"):fail("O jogo avisou que o botão certo não era a saída!");
+   arena.append(b);
+  });
+ }
+ },
+ {
+ title:"A palavra escondida",
+ story:"Encontre a palavra que está fora do lugar: MAÇÃ, BANANA, CARRO, UVA.",
+ build(){
+  const t=document.createElement("p");t.style.fontSize="23px";t.textContent="🍎 MAÇÃ　🍌 BANANA　🚗 CARRO　🍇 UVA";
+  const b=button("CARRO","option");b.onclick=()=>win("Isso! O carro não é uma fruta.");
+  const c=button("BANANA","option");c.onclick=()=>fail("Banana é uma fruta!");
+  arena.append(t,b,c);
+ }
+ },
+ {
+ title:"A porta trancada",
+ story:"A porta abre quando você para de olhar para ela. Faça o que for necessário.",
+ build(){
+  const t=document.createElement("h2");t.textContent="🚪";t.style.fontSize="70px";
+  const b=button("ABRIR PORTA","");b.onclick=()=>fail("Você olhou diretamente para a porta!");
+  const hint=document.createElement("p");hint.className="small";hint.textContent="Dica: tente clicar em outro lugar...";
+  const other=button("Olhar para o chão","option");other.onclick=()=>win("Você desviou o olhar da porta!");
+  arena.append(t,b,hint,other);
+ }
+ },
+ {
+ title:"O último desafio",
+ story:"Para vencer, clique em continuar. Mas cuidado: só existe uma chance!",
+ build(){
+  const b=button("CONTINUAR","");b.onclick=()=>fail("Pegadinha! Você precisava esperar a mensagem mudar.");
+  const t=document.createElement("p");t.id="lastText";t.textContent="Aguarde a palavra secreta...";
+  arena.append(t,b);
+  setTimeout(()=>{if(arena.contains(t)){t.textContent="AGORA!";b.textContent="VENCER";b.onclick=()=>win("🏆 Você venceu o jogo das pegadinhas!");}},2500);
+ }
+ }
+];
+let index=0,lives=3,points=0,finished=false;
+const arena=document.getElementById("arena");
+function button(text,cls){let b=document.createElement("button");b.textContent=text;if(cls)b.className=cls;return b}
+function normalize(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim()}
+function render(){
+ finished=false;
+ document.getElementById("level").textContent=index+1;
+ document.getElementById("lives").textContent=lives;
+ document.getElementById("points").textContent=points;
+ document.getElementById("stageTitle").textContent=stages[index].title;
+ document.getElementById("story").textContent=stages[index].story;
+ document.getElementById("message").textContent="Descubra a pegadinha!";
+ document.getElementById("next").style.display="none";
+ arena.innerHTML="";
+ stages[index].build();
+}
+function win(text){
+ if(finished)return;finished=true;points+=10;
+ document.getElementById("points").textContent=points;
+ document.getElementById("message").textContent="✅ "+text;
+ document.getElementById("next").style.display="inline-block";
+}
+function fail(text){
+ if(finished)return;
+ lives--;document.getElementById("lives").textContent=lives;
+ document.getElementById("message").textContent="❌ "+text+" Vida perdida!";
+ if(lives<=0){
+  finished=true;
+  document.getElementById("message").textContent="💀 Fim de jogo! Você caiu nas pegadinhas.";
+  document.getElementById("next").style.display="none";
+  const b=button("Tentar novamente","");b.onclick=restart;arena.append(b);
+ }
+}
+function nextStage(){
+ if(!finished)return;
+ if(index===stages.length-1){
+  document.getElementById("stageTitle").textContent="🏆 VOCÊ VENCEU!";
+  document.getElementById("story").textContent="Você passou por todas as pegadinhas. O jogo não conseguiu enganar você!";
+  arena.innerHTML="<div style='font-size:70px'>🎉🏆🎉</div>";
+  document.getElementById("message").textContent="Pontuação final: "+points;
+  document.getElementById("next").style.display="none";
+  return;
+ }
+ index++;render();
+}
+function restart(){index=0;lives=3;points=0;render()}
+render();
+</script>
+</body>
+</html>
